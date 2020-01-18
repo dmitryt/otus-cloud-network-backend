@@ -4,14 +4,15 @@ import (
     "net/http"
     "log"
     "os"
+    "time"
     "encoding/json"
 
     "github.com/gorilla/mux"
 )
 
 type Data struct {
-	Type string
-	Value string
+	Path string `json:"path"`
+	Timestamp string `json:"timestamp"`
 }
 
 func loggingMiddleware(next http.Handler) http.Handler {
@@ -28,15 +29,23 @@ func main() {
 		logger := log.New(os.Stdout, "http: ", log.LstdFlags)
 		logger.Println("Server is starting...")
 
-    r.HandleFunc("/greetings/{greetings}", func(w http.ResponseWriter, r *http.Request) {
+		api := r.PathPrefix("/api").Subrouter()
+    api.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusNotFound)
+		})
+
+		api1 := api.PathPrefix("/v1").Subrouter()
+
+    api1.HandleFunc("/send/{greetings}", func(w http.ResponseWriter, r *http.Request) {
         vars := mux.Vars(r)
 				value := vars["greetings"]
-				d := Data{Type: "greetings", Value: value}
+				d := Data{Path: value, Timestamp: time.Now().String()}
 				w.Header().Set("Content-Type", "application/json")
+				w.Header().Set("Access-Control-Allow-Origin", "*")
 				json.NewEncoder(w).Encode(d)
 		})
 
 		r.Use(loggingMiddleware)
 
-    http.ListenAndServe(":80", r)
+    http.ListenAndServe(":8080", r)
 }
